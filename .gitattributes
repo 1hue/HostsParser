@@ -1,0 +1,6 @@
+* text=auto eol=lfs
+
+/**           export-ignore
+/hosts.c      !export-ignore
+/Makefile     !export-ignore
+/README.md    !export-ignore
