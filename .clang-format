@@ -1,0 +1,6 @@
+BasedOnStyle: LLVM
+BreakBeforeBraces: Attach
+AlignAfterOpenBracket: DontAlign
+AllowShortArraysOnASingleLine: false
+BinPackArguments: false
+BinPackParameters: false
