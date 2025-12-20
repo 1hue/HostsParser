@@ -1,6 +1,12 @@
 # Hosts Parser `.c`
 
-Install `gcc`, then:
+Install:
+
+1. `gcc`
+
+2. `libasan` and `libubsan` _or_ remove `fsanitize` params from `Makefile`
+
+Then:
 
 ```sh
 make run
