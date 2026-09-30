@@ -1,18 +1,18 @@
 # --- Platform ---
 
 OS := $(shell uname -s)
-MAC = $(filter Darwin,$(OS))
+MAC := $(filter Darwin,$(OS))
 HOSTS = /etc/hosts
 
-ifeq ($(OS),Darwin)
+ifdef MAC
 CC = clang
 PLATFORM = macos-universal
 RELEASE_FLAGS = -arch arm64 -arch x86_64
-HARDEN = -D_FORTIFY_SOURCE=2 -fstack-protector-strong
+HARDEN = -D_FORTIFY_SOURCE=3 -fstack-protector-strong
 else
 CC = gcc
 PLATFORM = linux-$(shell uname -m)
-HARDEN = -fhardened
+HARDEN = -fhardened -Wno-hardened
 endif
 
 # --- Build settings ---
