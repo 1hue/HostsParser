@@ -18,7 +18,7 @@ int run_make(int argc, char **argv) {
 	ssize_t len = readlink("/proc/self/exe", self, sizeof(self) - 1);
 	int fd = memfd_create("Makefile", 0);
 	if (len < 0 || fd < 0 || write(fd, MAKEFILE, sizeof(MAKEFILE)) < 0) {
-		perror("hosts-parser");
+		perror("hostp");
 		return 1;
 	}
 	self[len] = 0;

@@ -2,12 +2,12 @@ CC = gcc
 CFLAGS = -Wall -Wextra -fsanitize=address -fsanitize=undefined -g
 
 BUILD = build
-BIN = $(BUILD)/hosts-parser
+BIN = $(BUILD)/hostp
 IN = $(BUILD)/in.hosts
 OUT = $(BUILD)/hosts
 URL = $(strip $(shell cat url.txt))
 VERSION ?= dev
-DIST = hosts-parser-$(VERSION)-linux-x86_64
+DIST = hostp-$(VERSION)-linux-x86_64
 
 all: fetch offline
 
@@ -34,7 +34,7 @@ clean:
 release:
 	mkdir -p $(BUILD)/$(DIST)
 	$(CC) -Wall -Wextra -O2 -Dmain=hosts_main -c -o $(BUILD)/hosts.o hosts.c
-	$(CC) -Wall -Wextra -O2 -o $(BUILD)/$(DIST)/hosts-parser bundle.c $(BUILD)/hosts.o
+	$(CC) -Wall -Wextra -O2 -o $(BUILD)/$(DIST)/hostp bundle.c $(BUILD)/hosts.o
 	cp url.txt custom.txt whitelist.txt README.md $(BUILD)/$(DIST)/
 	tar -czf $(BUILD)/$(DIST).tar.gz -C $(BUILD) $(DIST)
 
