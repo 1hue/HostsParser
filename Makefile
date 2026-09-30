@@ -5,7 +5,7 @@ BUILD = build
 BIN = $(BUILD)/hosts-parser
 IN = $(BUILD)/in.hosts
 OUT = $(BUILD)/hosts
-URL = https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-social/hosts
+URL = $(strip $(shell cat url.txt))
 VERSION ?= dev
 DIST = hosts-parser-$(VERSION)-linux-x86_64
 

@@ -24,5 +24,6 @@ make copy # CAUTION: overwrites `/etc/hosts` with sudo
 
 ## Config
 
+- [`url.txt`](url.txt) blocklist URL to fetch
 - [`custom.txt`](custom.txt) lines to prepend in hostfile (block)
 - [`whitelist.txt`](whitelist.txt) regexes of lines to drop
