@@ -2,7 +2,7 @@ name: release
 
 on:
   push:
-    tags: [ "v*" ]
+    tags: ["v*"]
 
 permissions:
   contents: write
@@ -13,6 +13,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: make release VERSION=${{ github.ref_name }}
-      - run: gh release create ${{ github.ref_name }} build/*.tar.gz --generate-notes
+      - run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" build/*.tar.gz --clobber
+          else
+            gh release create "$TAG" build/*.tar.gz --generate-notes
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
