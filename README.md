@@ -2,7 +2,7 @@
 
 ## Usage
 
-Requires `make` and `curl`. Download and extract the [latest release](../../releases/latest), then:
+Linux and macOS. Requires `make` and `curl` (on macOS: Xcode Command Line Tools). Download and extract the [latest release](../../releases/latest), then:
 
 ```sh
 ./hostp # Output goes to `build/hosts`
@@ -15,13 +15,13 @@ Requires `make` and `curl`. Download and extract the [latest release](../../rele
 
 - [`url.txt`](url.txt) blocklist URL to fetch
 - [`custom.txt`](custom.txt) lines to prepend in hostfile (block)
-- [`whitelist.txt`](whitelist.txt) regexes of lines to drop (allow)
+- [`whitelist.txt`](whitelist.txt) regexes of lines to drop
 
 ## Development
 
 ### Requires:
 
-- `gcc` 15+ (C23, `#embed`)
+- `gcc` 15+ (Linux) or Xcode `clang` (macOS): C23, `#embed`
 - `make`
 - `curl`
 - Optional (remove `-fsanitize` from `Makefile` to skip):

@@ -1,10 +1,14 @@
 // Single-executable wrapper: embeds Makefile and links hosts.c (as hosts_main)
 #define _GNU_SOURCE
+#include <err.h>
 #include <libgen.h>
 #include <limits.h>
 #include <stdio.h>
-#include <sys/mman.h>
+#include <stdlib.h>
 #include <unistd.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 
 int hosts_main(int argc, char **argv);
 
@@ -12,19 +16,35 @@ static const char MAKEFILE[] = {
 #embed "Makefile"
 };
 
-// Replace this process with make, using the embedded Makefile via an in-memory file
+// Absolute path of the running executable
+static void exe_path(char *buf) {
+#ifdef __APPLE__
+	char tmp[PATH_MAX];
+	uint32_t size = sizeof(tmp);
+	if (_NSGetExecutablePath(tmp, &size) != 0 || !realpath(tmp, buf))
+		err(1, "executable path");
+#else
+	ssize_t len = readlink("/proc/self/exe", buf, PATH_MAX - 1);
+	if (len < 0)
+		err(1, "executable path");
+	buf[len] = 0;
+#endif
+}
+
+// Replace this process with make, reading the embedded Makefile from a pipe
 int run_make(int argc, char **argv) {
 	char self[PATH_MAX];
-	ssize_t len = readlink("/proc/self/exe", self, sizeof(self) - 1);
-	int fd = memfd_create("Makefile", 0);
-	if (len < 0 || fd < 0 || write(fd, MAKEFILE, sizeof(MAKEFILE)) < 0) {
-		perror("hostp");
-		return 1;
-	}
-	self[len] = 0;
+	exe_path(self);
+
+	// Makefile fits in the pipe buffer, so no writer process is needed
+	int fd[2];
+	if (pipe(fd) < 0 ||
+		write(fd[1], MAKEFILE, sizeof(MAKEFILE)) != sizeof(MAKEFILE))
+		err(1, "pipe");
+	close(fd[1]);
 
 	char mk[32], bin[PATH_MAX + 4], dir[PATH_MAX];
-	snprintf(mk, sizeof(mk), "/proc/self/fd/%d", fd);
+	snprintf(mk, sizeof(mk), "/dev/fd/%d", fd[0]);
 	snprintf(bin, sizeof(bin), "BIN=%s", self);
 	snprintf(dir, sizeof(dir), "%s", self);
 
@@ -42,9 +62,10 @@ int run_make(int argc, char **argv) {
 		args[n++] = argv[i];
 	args[n] = NULL;
 
+	// Prefer current GNU make (Homebrew installs it as gmake on macOS)
+	execvp("gmake", args);
 	execvp("make", args);
-	perror("make");
-	return 127;
+	err(127, "make");
 }
 
 int main(int argc, char **argv) {

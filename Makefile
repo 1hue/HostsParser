@@ -1,5 +1,18 @@
+OS := $(shell uname -s)
+
+ifeq ($(OS),Darwin)
+CC = clang
+RELEASE_FLAGS = -arch arm64 -arch x86_64
+PLATFORM = macos-universal
+COPY = sudo cp $(OUT) /etc/hosts && sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder
+else
 CC = gcc
-CFLAGS = -Wall -Wextra -fsanitize=address -fsanitize=undefined -g
+PLATFORM = linux-$(shell uname -m)
+COPY = sudo cp -Z $(OUT) /etc/hosts
+endif
+
+CFLAGS = -std=gnu23 -Wall -Wextra -fsanitize=address -fsanitize=undefined -g
+RELEASE_CFLAGS = -std=gnu23 -Wall -Wextra -O2 $(RELEASE_FLAGS)
 
 BUILD = build
 BIN = $(BUILD)/hostp
@@ -7,7 +20,7 @@ IN = $(BUILD)/in.hosts
 OUT = $(BUILD)/hosts
 URL = $(strip $(shell cat url.txt))
 VERSION ?= dev
-DIST = hostp-$(VERSION)-linux-x86_64
+DIST = hostp-$(VERSION)-$(PLATFORM)
 
 all: fetch offline
 
@@ -26,15 +39,15 @@ fetch:
 	curl -D - -o $(IN) $(URL)
 
 copy:
-	sudo cp -Z $(OUT) /etc/hosts
+	$(COPY)
 
 clean:
 	rm -rf $(BUILD)
 
 release:
 	mkdir -p $(BUILD)/$(DIST)
-	$(CC) -Wall -Wextra -O2 -Dmain=hosts_main -c -o $(BUILD)/hosts.o hosts.c
-	$(CC) -Wall -Wextra -O2 -o $(BUILD)/$(DIST)/hostp bundle.c $(BUILD)/hosts.o
+	$(CC) $(RELEASE_CFLAGS) -Dmain=hosts_main -c -o $(BUILD)/hosts.o hosts.c
+	$(CC) $(RELEASE_CFLAGS) -o $(BUILD)/$(DIST)/hostp bundle.c $(BUILD)/hosts.o
 	cp url.txt custom.txt whitelist.txt README.md $(BUILD)/$(DIST)/
 	tar -czf $(BUILD)/$(DIST).tar.gz -C $(BUILD) $(DIST)
 
