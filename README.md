@@ -1,20 +1,32 @@
 # Hosts Parser `.c`
 
-Install:
+## Requirements
 
-1. `gcc`
+- `gcc`
+- `libasan` and `libubsan` (or remove the `-fsanitize` flags from `Makefile`)
 
-2. `libasan` and `libubsan` _or_ remove `fsanitize` params from `Makefile`
-
-Then:
+## Usage
 
 ```sh
+make fetch
 make run
 ```
 
-Alternatively:
+Or run manually:
 
 ```sh
 make
-./hosts-parser -i ./hosts-input -o ./hosts-output
+./hosts-parser -i ./hosts -o ./out/hosts
 ```
+
+## Commands
+
+| Command | Description |
+|---|---|
+| `make` | Build `hosts-parser` binary |
+| `make run` | Parse `./hosts` into `./out/hosts` |
+| `make copy` | Install output to `/etc/hosts` |
+| `make fetch` | Download StevenBlack blocklist |
+| `make clean` | Remove built binary |
+
+`make copy` overwrites `/etc/hosts` and likely needs `sudo`.
