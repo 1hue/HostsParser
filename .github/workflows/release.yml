@@ -1,9 +1,12 @@
 name: release
+
 on:
   push:
     tags: [ "v*" ]
+
 permissions:
   contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -11,5 +14,5 @@ jobs:
       - uses: actions/checkout@v4
       - run: make release VERSION=${{ github.ref_name }}
       - run: gh release create ${{ github.ref_name }} build/*.tar.gz --generate-notes
-      env:
-        GH_TOKEN: ${{ github.token }}
+        env:
+          GH_TOKEN: ${{ github.token }}
