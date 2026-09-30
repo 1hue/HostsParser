@@ -1,9 +1,10 @@
+#include <ctype.h>
 #include <err.h>
-#include <getopt.h>
 #include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 
 #define CUSTOM_FILE "custom.txt"
@@ -21,12 +22,14 @@ const char *ALLOW_PATTERNS[] = {
 	NULL};
 
 const char *WHITELIST_PATTERNS[] = {
-	// Patterns excluded from hostsfile (supplemented by WHITELIST_FILE)
+	// Patterns excluded from hostsfile (plus domains in WHITELIST_FILE)
 	"::", // ipv6
 	"^255\\.255\\.255\\.255",
 	"^127\\.0\\.0\\.1",
 	"\\.localdomain",
 	NULL};
+
+const char *NO_LINES[] = {NULL};
 
 typedef enum { LINE_OUTPUT, LINE_SKIP, LINE_INVALID } LineType;
 
@@ -46,6 +49,7 @@ List input_list = {};
 List custom_list = {};
 List allow_list = {};
 List whitelist_list = {};
+List domain_list = {};
 
 regex_t *allow_regex = NULL;
 regex_t *whitelist_regex = NULL;
@@ -128,14 +132,72 @@ void free_all(void) {
 	list_free(&custom_list);
 	list_free(&allow_list);
 	list_free(&whitelist_list);
+	list_free(&domain_list);
+}
+
+// Trim whitespace and trailing comments, lowercase, and check each domain
+void normalize_domains(List *list) {
+	const char *valid = "abcdefghijklmnopqrstuvwxyz0123456789.-_";
+	for (int i = 0; i < list->n; i++) {
+		char *d = list->items[i];
+		d[strcspn(d, "#")] = 0;
+		char *start = d + strspn(d, " \t");
+		size_t len = strcspn(start, " \t");
+		if (start[len + strspn(start + len, " \t")] != 0)
+			errx(1,
+				"%s: invalid entry '%s' (use example.com or .example.com)",
+				WHITELIST_FILE,
+				start);
+
+		memmove(d, start, len);
+		d[len] = 0;
+		for (char *c = d; *c; c++)
+			*c = tolower((unsigned char)*c);
+
+		const char *base = d + (d[0] == '.');
+		if (!*base || strspn(base, valid) != strlen(base))
+			errx(1,
+				"%s: invalid entry '%s' (use example.com or .example.com)",
+				WHITELIST_FILE,
+				d);
+	}
 }
 
 void load_all(void) {
 	load_list(&custom_list, CUSTOM_LINES, CUSTOM_FILE);
-	load_list(&whitelist_list, WHITELIST_PATTERNS, WHITELIST_FILE);
+	load_list(&whitelist_list, WHITELIST_PATTERNS, NULL);
+	load_list(&domain_list, NO_LINES, WHITELIST_FILE);
+	normalize_domains(&domain_list);
 	load_list(&allow_list, ALLOW_PATTERNS, NULL);
 	allow_regex = compile_list(&allow_list);
 	whitelist_regex = compile_list(&whitelist_list);
+}
+
+// "example.com" matches exactly; ".example.com" also matches subdomains
+bool domain_matches(const char *host, size_t len, const char *entry) {
+	bool subdomains = entry[0] == '.';
+	const char *base = entry + subdomains;
+	size_t n = strlen(base);
+	if (len == n)
+		return strncasecmp(host, base, n) == 0;
+	return subdomains && len > n && host[len - n - 1] == '.' &&
+		strncasecmp(host + len - n, base, n) == 0;
+}
+
+// True if any hostname on the line (after the address) is whitelisted
+bool is_whitelisted(const char *line) {
+	const char *h = line + strcspn(line, " \t");
+	while (true) {
+		h += strspn(h, " \t");
+		size_t len = strcspn(h, " \t#");
+		if (len == 0)
+			return false;
+		for (int i = 0; i < domain_list.n; i++) {
+			if (domain_matches(h, len, domain_list.items[i]))
+				return true;
+		}
+		h += len;
+	}
 }
 
 LineType classify_line(const char *line) {
@@ -147,6 +209,9 @@ LineType classify_line(const char *line) {
 		if (regexec(&whitelist_regex[i], l, 0, NULL, 0) == 0)
 			return LINE_SKIP;
 	}
+
+	if (is_whitelisted(l))
+		return LINE_SKIP;
 
 	for (int i = 0; i < allow_list.n; i++) {
 		if (regexec(&allow_regex[i], l, 0, NULL, 0) == 0)

@@ -1,2 +1,4 @@
-# Whitelist regex (POSIX ERE); matching input lines are dropped. One per line, e.g.:
-# ads\.example\.com
+# Whitelisted domains - dropped from the downloaded hosts file
+# One per line:
+# example.com (exact domain)
+# .example.com (domain and all subdomains)

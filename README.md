@@ -5,21 +5,21 @@
 Linux and macOS. Requires `make` and `curl` (on macOS: Xcode Command Line Tools). Download and extract the [latest release](../../releases/latest), then:
 
 ```sh
-./hostp # Output goes to `build/hosts`
-./hostp copy # CAUTION: overwrites `/etc/hosts` with sudo
+./hostp # Output goes to build/hosts
+./hostp copy # CAUTION: overwrites /etc/hosts with sudo
 ```
 
 `./hostp offline` skips the download and reuses the last one.
 
 ## Config
 
-- [`url.txt`](url.txt) blocklist URL to fetch
+- [`url.txt`](url.txt) to fetch hosts file from
 - [`custom.txt`](custom.txt) lines to prepend in hostfile (block)
-- [`whitelist.txt`](whitelist.txt) regexes of lines to drop
+- [`whitelist.txt`](whitelist.txt) domains (allow)
 
 ## Development
 
-### Requires:
+Requires:
 
 - `gcc` 15+ (Linux) or Xcode `clang` (macOS): C23, `#embed`
 - `make`
@@ -29,8 +29,8 @@ Linux and macOS. Requires `make` and `curl` (on macOS: Xcode Command Line Tools)
   - `libubsan`: detects integer overflow, null derefs, etc.
 
 ```sh
-make # Output goes to `build/hosts`
-make copy # CAUTION: overwrites `/etc/hosts` with sudo
+make # Output goes to build/hosts
+make copy # CAUTION: overwrites /etc/hosts with sudo
 ```
 
 | Command | Description |
