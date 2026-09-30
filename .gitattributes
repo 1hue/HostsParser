@@ -2,5 +2,9 @@
 
 /**           export-ignore
 /hosts.c      !export-ignore
+/.clang-format      !export-ignore
+/hosts.c      !export-ignore
 /Makefile     !export-ignore
 /README.md    !export-ignore
+/LICENSE    !export-ignore
+/*.txt    !export-ignore
