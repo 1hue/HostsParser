@@ -1,0 +1,2 @@
+# Custom hosts lines, prepended to output. One per line, e.g.:
+# 0.0.0.0 ads.example.com

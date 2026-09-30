@@ -3,20 +3,23 @@ CFLAGS = -Wall -Wextra -fsanitize=address -fsanitize=undefined -g
 
 BUILD = build
 BIN = $(BUILD)/hosts-parser
+IN = $(BUILD)/in.hosts
 OUT = $(BUILD)/hosts
+URL = https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-social/hosts
 
-all: run
+all: build fetch
+	./$(BIN) -i $(IN) -o $(OUT)
+	ls -l $(OUT) /etc/hosts
+
+build: $(BIN)
 
 $(BIN): hosts.c
 	mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -o $(BIN) hosts.c
 
-run: $(BIN) fetch
-	./$(BIN) -i ./hosts -o $(OUT)
-	ls -l $(OUT) /etc/hosts
-
 fetch:
-	curl -D - -O https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-social/hosts
+	mkdir -p $(BUILD)
+	curl -D - -o $(IN) $(URL)
 
 copy:
 	sudo cp -Z $(OUT) /etc/hosts
@@ -24,4 +27,4 @@ copy:
 clean:
 	rm -rf $(BUILD)
 
-.PHONY: all run fetch copy clean
+.PHONY: all build fetch copy clean

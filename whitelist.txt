@@ -1,0 +1,2 @@
+# Whitelist regex (POSIX ERE); matching input lines are dropped. One per line, e.g.:
+# ads\.example\.com

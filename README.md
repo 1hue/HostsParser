@@ -15,19 +15,23 @@ make copy
 Or run manually:
 
 ```sh
-make build/hosts-parser
-./build/hosts-parser -i ./hosts -o ./build/hosts
+make build
+./build/hosts-parser -i ./build/hosts.in -o ./build/hosts
 ```
 
 ## Commands
 
-| Command | Description             |
-|---|-------------------------|
-| `make` / `make all` | Build, fetch, and parse |
-| `make run` | Same as `make`          |
-| `make build/hosts-parser` | Build binary only       |
-| `make fetch` | Download blocklist      |
-| `make copy` | Copy to `/etc/hosts`    |
-| `make clean` | Remove `build/`         |
+| Command | Description                            |
+|---|----------------------------------------|
+| `make` | Build, fetch, and parse                |
+| `make build` | Build binary only                      |
+| `make fetch` | Download blocklist to `build/in.hosts` |
+| `make copy` | Copy output to `/etc/hosts`            |
+| `make clean` | Remove `build/`                        |
+
+## Config
+
+- [`custom.txt`](custom.txt) lines to prepend in hostfile (block)
+- [`whitelist.txt`](whitelist.txt): regexes of lines to drop
 
 Output goes to `build/hosts`. `make copy` overwrites `/etc/hosts` and runs `sudo`; back it up first.
