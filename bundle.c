@@ -16,7 +16,23 @@ static const char MAKEFILE[] = {
 #embed "Makefile"
 };
 
+static const char COPY_SH[] = {
+#embed "copy.sh"
+};
+
+// Each file is written whole into a pipe before it's read; 4 KiB is the
+// smallest pipe buffer on Linux and macOS, so larger would block forever
 static_assert(sizeof(MAKEFILE) <= 4096, "Makefile too large for pipe buffer");
+static_assert(sizeof(COPY_SH) <= 4096, "copy.sh too large for pipe buffer");
+
+// Read end of a pipe preloaded with data, readable as /dev/fd/N
+static int preload_pipe(const char *data, size_t size) {
+	int fd[2];
+	if (pipe(fd) < 0 || write(fd[1], data, size) != (ssize_t)size)
+		err(1, "pipe");
+	close(fd[1]);
+	return fd[0];
+}
 
 // Absolute path of the running executable
 static void exe_path(char *buf) {
@@ -33,24 +49,21 @@ static void exe_path(char *buf) {
 #endif
 }
 
-// Replace this process with make, reading the embedded Makefile from a pipe
+// Replace this process with make; embedded files are read from pipes
 int run_make(int argc, char **argv) {
 	char self[PATH_MAX];
 	exe_path(self);
 
-	// Makefile fits in the pipe buffer, so no writer process is needed
-	int fd[2];
-	if (pipe(fd) < 0 ||
-		write(fd[1], MAKEFILE, sizeof(MAKEFILE)) != sizeof(MAKEFILE))
-		err(1, "pipe");
-	close(fd[1]);
+	int mk_fd = preload_pipe(MAKEFILE, sizeof(MAKEFILE));
+	int sh_fd = preload_pipe(COPY_SH, sizeof(COPY_SH));
 
-	char mk[32], bin[PATH_MAX + 4], dir[PATH_MAX];
-	snprintf(mk, sizeof(mk), "/dev/fd/%d", fd[0]);
+	char mk[32], sh[32], bin[PATH_MAX + 4], dir[PATH_MAX];
+	snprintf(mk, sizeof(mk), "/dev/fd/%d", mk_fd);
+	snprintf(sh, sizeof(sh), "COPY_SH=/dev/fd/%d", sh_fd);
 	snprintf(bin, sizeof(bin), "BIN=%s", self);
 	snprintf(dir, sizeof(dir), "%s", self);
 
-	char *args[argc + 8];
+	char *args[argc + 9];
 	int n = 0;
 	args[n++] = "make";
 	args[n++] = "--no-print-directory";
@@ -60,6 +73,7 @@ int run_make(int argc, char **argv) {
 	args[n++] = dirname(dir);
 	args[n++] = bin;
 	args[n++] = "BUNDLED=1";
+	args[n++] = sh;
 	for (int i = 1; i < argc; i++)
 		args[n++] = argv[i];
 	args[n] = NULL;

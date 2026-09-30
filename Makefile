@@ -7,18 +7,9 @@ ifeq ($(OS),Darwin)
 CC = clang
 PLATFORM = macos-universal
 RELEASE_FLAGS = -arch arm64 -arch x86_64
-COPY = sudo cp $(OUT) $(HOSTS).new \
-	&& sudo mv $(HOSTS).new $(HOSTS) \
-	&& { sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder || true; }
-size = stat -f %z $(1)
-mtime = stat -f %Sm -t '%F %R' $(1)
 else
 CC = gcc
 PLATFORM = linux-$(shell uname -m)
-COPY = sudo cp $(OUT) $(HOSTS).new \
-	&& sudo mv -Z $(HOSTS).new $(HOSTS)
-size = stat -c %s $(1)
-mtime = date -r $(1) '+%F %R'
 endif
 
 # --- Build settings ---
@@ -35,6 +26,7 @@ BIN = $(BUILD)/hostp
 IN = $(BUILD)/in.hosts
 OUT = $(BUILD)/hosts
 URL = $(strip $(shell cat url.txt))
+COPY_SH = copy.sh
 VERSION ?= dev
 DIST = hostp-$(VERSION)-$(PLATFORM)
 
@@ -58,23 +50,9 @@ fetch:
 	mkdir -p $(BUILD)
 	curl $(CURL_FLAGS) -o $(IN) "$(URL)"
 
-# Confirm before replacing HOSTS
+# Confirm, then replace HOSTS (see copy.sh; embedded in release builds)
 copy:
-	@test -s $(OUT) || { echo "$(OUT) missing or empty; run make first"; exit 1; }
-	@old=$$($(call size,$(HOSTS)) 2>/dev/null || echo 0); \
-	new=$$($(call size,$(OUT))); \
-	diff=$$(printf '%+d' $$((new - old))); \
-	\
-	echo "Replace $(HOSTS)?"; \
-	echo "Current: $$old bytes, modified $$($(call mtime,$(HOSTS)) 2>/dev/null)"; \
-	echo "New: $$new bytes ($$diff), modified $$($(call mtime,$(OUT)))"; \
-	printf 'Overwrite? [y/N] '; \
-	read ans; \
-	\
-	case "$$ans" in \
-		[yY]*) $(COPY) && echo "Replaced $(HOSTS)";; \
-		*) echo "Aborted; $(HOSTS) unchanged";; \
-	esac
+	@sh "$(COPY_SH)" $(OUT) $(HOSTS)
 
 clean:
 	rm -rf $(BUILD)
