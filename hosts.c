@@ -1,3 +1,4 @@
+#include <err.h>
 #include <getopt.h>
 #include <regex.h>
 #include <stdio.h>
@@ -5,7 +6,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#define MAX_LINE_LEN 300
 #define CUSTOM_FILE "custom.txt"
 #define WHITELIST_FILE "whitelist.txt"
 
@@ -28,6 +28,8 @@ const char *WHITELIST_PATTERNS[] = {
 	"\\.localdomain",
 	NULL};
 
+typedef enum { LINE_OUTPUT, LINE_SKIP, LINE_INVALID } LineType;
+
 typedef struct {
 	int valid_output;
 	int valid_skipped;
@@ -37,39 +39,46 @@ typedef struct {
 typedef struct {
 	char **items;
 	int n;
+	int cap;
 } List;
 
-List custom_list = {0};
-List allow_list = {0};
-List whitelist_list = {0};
+List input_list = {};
+List custom_list = {};
+List allow_list = {};
+List whitelist_list = {};
 
 regex_t *allow_regex = NULL;
 regex_t *whitelist_regex = NULL;
 
+void *xrealloc(void *ptr, size_t size) {
+	ptr = realloc(ptr, size);
+	if (!ptr)
+		err(1, "realloc");
+	return ptr;
+}
+
 void list_add(List *list, const char *s) {
-	list->items = realloc(list->items, (list->n + 1) * sizeof(char *));
-	list->items[list->n++] = strdup(s);
+	if (list->n == list->cap) {
+		list->cap = list->cap ? list->cap * 2 : 64;
+		list->items = xrealloc(list->items, list->cap * sizeof(char *));
+	}
+	list->items[list->n] = strdup(s);
+	if (!list->items[list->n++])
+		err(1, "strdup");
 }
 
 void list_free(List *list) {
 	for (int i = 0; i < list->n; i++)
 		free(list->items[i]);
 	free(list->items);
-	list->items = NULL;
-	list->n = 0;
+	*list = (List){};
 }
 
-// Hardcoded entries first, then non-empty, non-comment lines from path
-int load_list(List *list, const char **hardcoded, const char *path) {
-	for (int i = 0; hardcoded[i]; i++)
-		list_add(list, hardcoded[i]);
-
-	if (!path)
-		return 0;
-
+// Lines from path without line endings; optionally drop blank and # lines
+void read_lines(List *list, const char *path, bool skip_comments) {
 	FILE *f = fopen(path, "r");
 	if (!f)
-		return -1;
+		err(1, "%s", path);
 
 	char *line = NULL;
 	size_t cap = 0;
@@ -77,29 +86,29 @@ int load_list(List *list, const char **hardcoded, const char *path) {
 	while ((len = getline(&line, &cap, f)) != -1) {
 		while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r'))
 			line[--len] = 0;
-		const char *l = line;
-		while (*l == ' ' || *l == '\t')
-			l++;
-		if (*l == '#' || *l == 0)
+		const char *l = line + strspn(line, " \t");
+		if (skip_comments && (*l == '#' || *l == 0))
 			continue;
 		list_add(list, line);
 	}
 
 	free(line);
 	fclose(f);
-	return 0;
+}
+
+// Hardcoded entries first, then non-empty, non-comment lines from path
+void load_list(List *list, const char **hardcoded, const char *path) {
+	for (int i = 0; hardcoded[i]; i++)
+		list_add(list, hardcoded[i]);
+	if (path)
+		read_lines(list, path, true);
 }
 
 regex_t *compile_list(const List *list) {
-	regex_t *regex = malloc(list->n * sizeof(regex_t));
+	regex_t *regex = xrealloc(NULL, list->n * sizeof(regex_t));
 	for (int i = 0; i < list->n; i++) {
-		if (regcomp(&regex[i], list->items[i], REG_EXTENDED | REG_NOSUB)) {
-			fprintf(stderr, "Invalid pattern: %s\n", list->items[i]);
-			for (int j = 0; j < i; j++)
-				regfree(&regex[j]);
-			free(regex);
-			return NULL;
-		}
+		if (regcomp(&regex[i], list->items[i], REG_EXTENDED | REG_NOSUB))
+			errx(1, "Invalid pattern: %s", list->items[i]);
 	}
 	return regex;
 }
@@ -112,109 +121,71 @@ void free_regex(regex_t *regex, const List *list) {
 	free(regex);
 }
 
-void free_all() {
+void free_all(void) {
 	free_regex(allow_regex, &allow_list);
 	free_regex(whitelist_regex, &whitelist_list);
+	list_free(&input_list);
 	list_free(&custom_list);
 	list_free(&allow_list);
 	list_free(&whitelist_list);
 }
 
-int load_all() {
-	if (load_list(&custom_list, CUSTOM_LINES, CUSTOM_FILE) < 0) {
-		fprintf(stderr, "Could not load %s\n", CUSTOM_FILE);
-		return -1;
-	}
-	if (load_list(&whitelist_list, WHITELIST_PATTERNS, WHITELIST_FILE) < 0) {
-		fprintf(stderr, "Could not load %s\n", WHITELIST_FILE);
-		return -1;
-	}
+void load_all(void) {
+	load_list(&custom_list, CUSTOM_LINES, CUSTOM_FILE);
+	load_list(&whitelist_list, WHITELIST_PATTERNS, WHITELIST_FILE);
 	load_list(&allow_list, ALLOW_PATTERNS, NULL);
-
 	allow_regex = compile_list(&allow_list);
 	whitelist_regex = compile_list(&whitelist_list);
-	if (!allow_regex || !whitelist_regex)
-		return -1;
-	return 0;
 }
 
-int classify_line(const char *line) {
-	const char *l = line;
-	while (*l == ' ' || *l == '\t')
-		l++;
-
-	if (*l == '#' || *l == '\n' || *l == 0)
-		return 2;
+LineType classify_line(const char *line) {
+	const char *l = line + strspn(line, " \t");
+	if (*l == '#' || *l == 0)
+		return LINE_SKIP;
 
 	for (int i = 0; i < whitelist_list.n; i++) {
 		if (regexec(&whitelist_regex[i], l, 0, NULL, 0) == 0)
-			return 2;
+			return LINE_SKIP;
 	}
 
 	for (int i = 0; i < allow_list.n; i++) {
 		if (regexec(&allow_regex[i], l, 0, NULL, 0) == 0)
-			return 1;
+			return LINE_OUTPUT;
 	}
 
-	return 3;
+	return LINE_INVALID;
 }
 
-int count_lines(const char *path) {
-	FILE *f = fopen(path, "r");
-	if (!f)
-		return -1;
-	int count = 0;
-	char buf[MAX_LINE_LEN];
-	while (fgets(buf, MAX_LINE_LEN, f))
-		count++;
-	fclose(f);
-	return count;
-}
-
-int load_hosts(const char *path, char (*lines)[MAX_LINE_LEN], int max) {
-	FILE *f = fopen(path, "r");
-	if (!f)
-		return -1;
-	int n = 0;
-	while (fgets(lines[n], MAX_LINE_LEN, f) && n < max)
-		n++;
-	fclose(f);
-	return n;
-}
-
-void process_results(
-	char (*lines)[MAX_LINE_LEN], int n, const char *outfile, Stats *stats) {
+void process_results(const List *lines, const char *outfile, Stats *stats) {
 	FILE *out = fopen(outfile, "w");
 	if (!out)
-		return;
+		err(1, "%s", outfile);
 
 	// Prepend custom lines
-	for (int i = 0; i < custom_list.n; i++) {
-		fputs(custom_list.items[i], out);
-		fputc('\n', out);
-	}
+	for (int i = 0; i < custom_list.n; i++)
+		fprintf(out, "%s\n", custom_list.items[i]);
 
-	stats->valid_output = 0;
-	stats->valid_skipped = 0;
-	stats->invalid = 0;
-
-	for (int i = 0; i < n; i++) {
-		int type = classify_line(lines[i]);
-		if (type == 1) {
-			fputs(lines[i], out);
+	for (int i = 0; i < lines->n; i++) {
+		switch (classify_line(lines->items[i])) {
+		case LINE_OUTPUT:
+			fprintf(out, "%s\n", lines->items[i]);
 			stats->valid_output++;
-		} else if (type == 2) {
+			break;
+		case LINE_SKIP:
 			stats->valid_skipped++;
-		} else {
+			break;
+		case LINE_INVALID:
 			fprintf(stderr,
-				"\033[1;33mWARNING: Invalid line %d:\033[0m %s",
+				"\033[1;33mWARNING: Invalid line %d:\033[0m %s\n",
 				i + 1,
-				lines[i]);
+				lines->items[i]);
 			stats->invalid++;
+			break;
 		}
 	}
 
-	fclose(out);
+	if (fclose(out) != 0)
+		err(1, "%s", outfile);
 }
 
 int main(int argc, char **argv) {
@@ -241,33 +212,12 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	if (load_all() < 0) {
-		free_all();
-		return 1;
-	}
+	atexit(free_all);
+	load_all();
+	read_lines(&input_list, input, false);
 
-	int line_count = count_lines(input);
-	if (line_count < 0) {
-		fprintf(stderr, "Invalid line count in %s", input);
-		free_all();
-		return 1;
-	}
-
-	char (*lines)[MAX_LINE_LEN] = malloc(line_count * sizeof(*lines));
-
-	int n = load_hosts(input, lines, line_count);
-	if (n < 0) {
-		fprintf(stderr,
-			"Could not load input file: %s (%d expected lines)\n",
-			input,
-			line_count);
-		free(lines);
-		free_all();
-		return 1;
-	}
-
-	Stats stats;
-	process_results(lines, n, output, &stats);
+	Stats stats = {};
+	process_results(&input_list, output, &stats);
 
 	int tty = isatty(STDOUT_FILENO);
 	const char *bold = tty ? "\033[1m" : "";
@@ -295,7 +245,5 @@ int main(int argc, char **argv) {
 		stats.invalid,
 		reset);
 
-	free_all();
-	free(lines);
 	return stats.invalid > 0 ? 1 : 0;
 }
