@@ -1,6 +1,13 @@
 BasedOnStyle: LLVM
+UseTab: Always
+IndentWidth: 4
+TabWidth: 4
 BreakBeforeBraces: Attach
 AlignAfterOpenBracket: DontAlign
-AllowShortArraysOnASingleLine: false
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignOperands: DontAlign
+AlignTrailingComments: false
 BinPackArguments: false
 BinPackParameters: false
+InsertNewlineAtEOF: true
