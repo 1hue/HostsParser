@@ -1,14 +1,15 @@
 OS := $(shell uname -s)
+HOSTS = /etc/hosts
 
 ifeq ($(OS),Darwin)
 CC = clang
 RELEASE_FLAGS = -arch arm64 -arch x86_64
 PLATFORM = macos-universal
-COPY = sudo cp $(OUT) /etc/hosts && sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder
+COPY = sudo cp $(OUT) $(HOSTS).new && sudo mv $(HOSTS).new $(HOSTS) && { sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder || true; }
 else
 CC = gcc
 PLATFORM = linux-$(shell uname -m)
-COPY = sudo cp -Z $(OUT) /etc/hosts
+COPY = sudo cp $(OUT) $(HOSTS).new && sudo mv -Z $(HOSTS).new $(HOSTS)
 endif
 
 CFLAGS = -std=gnu23 -Wall -Wextra -fsanitize=address -fsanitize=undefined -g
@@ -25,8 +26,8 @@ DIST = hostp-$(VERSION)-$(PLATFORM)
 all: fetch offline
 
 offline: build
-	$(BIN) -i $(IN) -o $(OUT)
-	ls -l $(OUT) /etc/hosts
+	"$(BIN)" -i $(IN) -o $(OUT)
+	ls -l $(OUT) $(HOSTS)
 
 build: $(if $(BUNDLED),,$(BIN))
 
@@ -36,7 +37,7 @@ $(BIN): hosts.c
 
 fetch:
 	mkdir -p $(BUILD)
-	curl -D - -o $(IN) $(URL)
+	curl -f --connect-timeout 10 --max-time 300 -D - -o $(IN) "$(URL)"
 
 copy:
 	$(COPY)

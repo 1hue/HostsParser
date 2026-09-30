@@ -16,6 +16,8 @@ static const char MAKEFILE[] = {
 #embed "Makefile"
 };
 
+static_assert(sizeof(MAKEFILE) <= 4096, "Makefile too large for pipe buffer");
+
 // Absolute path of the running executable
 static void exe_path(char *buf) {
 #ifdef __APPLE__

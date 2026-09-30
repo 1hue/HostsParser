@@ -216,8 +216,12 @@ int main(int argc, char **argv) {
 	load_all();
 	read_lines(&input_list, input, false);
 
+	// Write to a temp file; replace output only once it's complete
+	char *tmp = xrealloc(NULL, strlen(output) + 5);
+	sprintf(tmp, "%s.tmp", output);
+
 	Stats stats = {};
-	process_results(&input_list, output, &stats);
+	process_results(&input_list, tmp, &stats);
 
 	int tty = isatty(STDOUT_FILENO);
 	const char *bold = tty ? "\033[1m" : "";
@@ -244,6 +248,14 @@ int main(int argc, char **argv) {
 		stats.invalid ? yellow : green,
 		stats.invalid,
 		reset);
+
+	if (stats.valid_output == 0) {
+		unlink(tmp);
+		errx(1, "No valid entries in %s; %s left unchanged", input, output);
+	}
+	if (rename(tmp, output) != 0)
+		err(1, "%s", output);
+	free(tmp);
 
 	return stats.invalid > 0 ? 1 : 0;
 }
