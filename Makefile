@@ -1,22 +1,27 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -fsanitize=address -fsanitize=undefined -g
 
-hosts-parser: hosts.c
-	$(CC) $(CFLAGS) -o hosts-parser hosts.c
+BUILD = build
+BIN = $(BUILD)/hosts-parser
+OUT = $(BUILD)/hosts
 
-run: hosts-parser
-	mkdir -p out
-	./hosts-parser -i ./hosts -o ./out/hosts
-	ls -l ./out/hosts /etc/hosts
+all: run
 
-copy:
-	cp -Z ./out/hosts /etc/hosts
+$(BIN): hosts.c
+	mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -o $(BIN) hosts.c
 
-
-clean:
-	rm -f ./hosts-parser
+run: $(BIN) fetch
+	./$(BIN) -i ./hosts -o $(OUT)
+	ls -l $(OUT) /etc/hosts
 
 fetch:
 	curl -D - -O https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling-social/hosts
 
-.PHONY: clean
+copy:
+	sudo cp -Z $(OUT) /etc/hosts
+
+clean:
+	rm -rf $(BUILD)
+
+.PHONY: all run fetch copy clean
