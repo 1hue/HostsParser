@@ -1,2 +1,2 @@
-# Custom hosts lines (block) to add
+# Custom hosts lines to add (block)
 # 0.0.0.0 ads.example.com
