@@ -9,9 +9,9 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: make release VERSION=${{ github.ref_name }}
       - run: gh release upload "$TAG" build/*.tar.gz --clobber
         env:

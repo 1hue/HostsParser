@@ -9,11 +9,13 @@ URL = $(strip $(shell cat url.txt))
 VERSION ?= dev
 DIST = hosts-parser-$(VERSION)-linux-x86_64
 
-all: build fetch
-	./$(BIN) -i $(IN) -o $(OUT)
+all: fetch offline
+
+offline: build
+	$(BIN) -i $(IN) -o $(OUT)
 	ls -l $(OUT) /etc/hosts
 
-build: $(BIN)
+build: $(if $(BUNDLED),,$(BIN))
 
 $(BIN): hosts.c
 	mkdir -p $(BUILD)
@@ -31,8 +33,9 @@ clean:
 
 release:
 	mkdir -p $(BUILD)/$(DIST)
-	$(CC) -Wall -Wextra -O2 -o $(BUILD)/$(DIST)/hosts-parser hosts.c
-	cp custom.txt whitelist.txt README.md $(BUILD)/$(DIST)/
+	$(CC) -Wall -Wextra -O2 -Dmain=hosts_main -c -o $(BUILD)/hosts.o hosts.c
+	$(CC) -Wall -Wextra -O2 -o $(BUILD)/$(DIST)/hosts-parser bundle.c $(BUILD)/hosts.o
+	cp url.txt custom.txt whitelist.txt README.md $(BUILD)/$(DIST)/
 	tar -czf $(BUILD)/$(DIST).tar.gz -C $(BUILD) $(DIST)
 
-.PHONY: all build fetch copy clean
+.PHONY: all offline build fetch copy clean release
