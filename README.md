@@ -8,25 +8,26 @@
 ## Usage
 
 ```sh
-make fetch
-make run
+make
+make copy
 ```
 
 Or run manually:
 
 ```sh
-make
-./hosts-parser -i ./hosts -o ./out/hosts
+make build/hosts-parser
+./build/hosts-parser -i ./hosts -o ./build/hosts
 ```
 
 ## Commands
 
-| Command | Description |
-|---|---|
-| `make` | Build `hosts-parser` binary |
-| `make run` | Parse `./hosts` into `./out/hosts` |
-| `make copy` | Install output to `/etc/hosts` |
-| `make fetch` | Download StevenBlack blocklist |
-| `make clean` | Remove built binary |
+| Command | Description             |
+|---|-------------------------|
+| `make` / `make all` | Build, fetch, and parse |
+| `make run` | Same as `make`          |
+| `make build/hosts-parser` | Build binary only       |
+| `make fetch` | Download blocklist      |
+| `make copy` | Copy to `/etc/hosts`    |
+| `make clean` | Remove `build/`         |
 
-`make copy` overwrites `/etc/hosts` and likely needs `sudo`.
+Output goes to `build/hosts`. `make copy` overwrites `/etc/hosts` and runs `sudo`; back it up first.
