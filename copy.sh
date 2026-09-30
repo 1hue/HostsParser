@@ -4,6 +4,7 @@
 set -eu
 new=$1
 target=$2
+os=$(uname -s)
 
 if [ -t 1 ]; then
 	bold=$(printf '\033[1m')
@@ -26,7 +27,7 @@ abort() {
 [ -t 0 ] || { echo "No terminal to confirm"; abort 1; }
 
 # File size, modification time and age source, per platform
-if [ "$(uname -s)" = Darwin ]; then
+if [ "$os" = Darwin ]; then
 	size() { stat -f %z "$1"; }
 	mtime() { stat -f %Sm -t '%F %R' "$1"; }
 	epoch() { stat -f %m "$1"; }
@@ -54,8 +55,8 @@ case $answer in
 esac
 
 # Copy next to the target, then rename over it so it's never half-written
-sudo cp "$new" "$target.new"
-if [ "$(uname -s)" = Darwin ]; then
+sudo install -m 644 "$new" "$target.new"
+if [ "$os" = Darwin ]; then
 	sudo mv "$target.new" "$target"
 	sudo dscacheutil -flushcache
 	sudo killall -HUP mDNSResponder || true

@@ -12,8 +12,8 @@
 
 const char *CUSTOM_LINES[] = {
 	// Custom lines prepended to output (supplemented by CUSTOM_FILE)
-	"127.0.0.1   localhost localhost.localdomain local",
-	"::1         localhost ip6-localhost ip6-loopback",
+	"127.0.0.1 localhost localhost.localdomain local",
+	"::1 localhost ip6-localhost ip6-loopback",
 	NULL};
 
 const char *ALLOW_PATTERNS[] = {
@@ -222,6 +222,10 @@ LineType classify_line(const char *line) {
 }
 
 void process_results(const List *lines, const char *outfile, Stats *stats) {
+	int tty = isatty(STDERR_FILENO);
+	const char *warn = tty ? "\033[1;33m" : "";
+	const char *warn_reset = tty ? "\033[0m" : "";
+
 	FILE *out = fopen(outfile, "w");
 	if (!out)
 		err(1, "%s", outfile);
@@ -241,8 +245,10 @@ void process_results(const List *lines, const char *outfile, Stats *stats) {
 			break;
 		case LINE_INVALID:
 			fprintf(stderr,
-				"\033[1;33mWARNING: Invalid line %d:\033[0m %s\n",
+				"%sWARNING: Invalid line %d:%s %s\n",
+				warn,
 				i + 1,
+				warn_reset,
 				lines->items[i]);
 			stats->invalid++;
 			break;

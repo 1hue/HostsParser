@@ -1,5 +1,4 @@
 // Single-executable wrapper: embeds Makefile and links hosts.c (as hosts_main)
-#define _GNU_SOURCE
 #include <err.h>
 #include <libgen.h>
 #include <limits.h>

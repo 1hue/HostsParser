@@ -1,23 +1,27 @@
 # --- Platform ---
 
 OS := $(shell uname -s)
+MAC = $(filter Darwin,$(OS))
 HOSTS = /etc/hosts
 
 ifeq ($(OS),Darwin)
 CC = clang
 PLATFORM = macos-universal
 RELEASE_FLAGS = -arch arm64 -arch x86_64
+HARDEN = -D_FORTIFY_SOURCE=2 -fstack-protector-strong
 else
 CC = gcc
 PLATFORM = linux-$(shell uname -m)
+HARDEN = -fhardened
 endif
 
 # --- Build settings ---
 
-WARN = -std=gnu23 -Wall -Wextra
-CFLAGS = $(WARN) -fsanitize=address -fsanitize=undefined -g
-RELEASE_CFLAGS = $(WARN) -O2 $(RELEASE_FLAGS)
-CURL_FLAGS = -f --connect-timeout 10 --max-time 300 -D -
+# WERROR=-Werror (set in CI) turns warnings into errors
+WARN = -std=gnu23 -Wall -Wextra -Wformat=2 -Wshadow $(WERROR)
+CFLAGS = $(WARN) -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer -g
+RELEASE_CFLAGS = $(WARN) -O2 $(HARDEN) -ftrivial-auto-var-init=zero $(RELEASE_FLAGS)
+CURL_FLAGS = -f --proto =https --max-filesize 50M --connect-timeout 10 --max-time 300 -D -
 
 # --- Paths ---
 
@@ -33,12 +37,13 @@ DIST = hostp-$(VERSION)-$(PLATFORM)
 # --- Targets ---
 
 .PHONY: all offline build fetch copy clean release
+.DELETE_ON_ERROR:
 
 all: fetch offline
 
 offline: build
 	"$(BIN)" -i $(IN) -o $(OUT)
-	ls -l $(OUT) $(HOSTS)
+	ls -lh $(if $(MAC),-O,-Z --time-style=long-iso) $(OUT) $(HOSTS)
 
 build: $(if $(BUNDLED),,$(BIN))
 
