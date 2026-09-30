@@ -66,5 +66,5 @@ release:
 	mkdir -p $(BUILD)/$(DIST)
 	$(CC) $(RELEASE_CFLAGS) -Dmain=hosts_main -c -o $(BUILD)/hosts.o hosts.c
 	$(CC) $(RELEASE_CFLAGS) -o $(BUILD)/$(DIST)/hostp bundle.c $(BUILD)/hosts.o
-	cp url.txt custom.txt whitelist.txt README.md $(BUILD)/$(DIST)/
+	cp *.txt README.md LICENSE $(BUILD)/$(DIST)/
 	tar -czf $(BUILD)/$(DIST).tar.gz -C $(BUILD) $(DIST)
